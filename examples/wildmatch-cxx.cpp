@@ -4,17 +4,22 @@
 
 #include <wildmatch/wildmatch.hpp>
 
-void die(const char *msg)
+static int die(const char *msg)
 {
     std::cerr << "error: " << msg << std::endl;
-    exit(1);
+	return EXIT_FAILURE;
 }
 
-int main(int argc, char **argv)
+
+#if defined(BUILD_MONOLITHIC)
+#define main(cnt, arr)      wildmatch_cxx_test_main(cnt, arr)
+#endif
+
+int main(int argc, const char **argv)
 {
     int i;
     if (argc < 4) {
-        die("usage: wildmatch <mode> <string> <pattern>\n"
+        return die("usage: wildmatch <mode> <string> <pattern>\n"
             "modes: wildmatch, iwildmatch, pathmatch, fnmatch");
     }
 
@@ -27,5 +32,5 @@ int main(int argc, char **argv)
     else if (!strcmp(argv[1], "pathmatch") || !strcmp(argv[1], "fnmatch"))
         match = wild::match(argv[3], argv[2], wild::FNMATCH);
 
-    return (match) ? 0 : 1;
+    return (match) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
