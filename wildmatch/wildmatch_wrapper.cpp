@@ -1,3 +1,5 @@
+#define wildmatch __wildmatch // helps avoid the link-time dependency by ensuring there's no link-time collision either.
+
 #include "wildmatch.hpp"
 #include "wildmatch.c" // avoids a link-time dependency
 

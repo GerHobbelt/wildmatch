@@ -6,6 +6,7 @@
 
 #include <wildmatch/wildmatch.h>
 
+
 static int die(const char *msg)
 {
     fprintf(stderr, "%s\n", msg);

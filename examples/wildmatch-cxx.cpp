@@ -17,7 +17,6 @@ static int die(const char *msg)
 
 int main(int argc, const char **argv)
 {
-    int i;
     if (argc < 4) {
         return die("usage: wildmatch <mode> <string> <pattern>\n"
             "modes: wildmatch, iwildmatch, pathmatch, fnmatch");
