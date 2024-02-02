@@ -1,5 +1,6 @@
 wildmatch
 =========
+
 wildmatch is a BSD-licensed C/C++ library for git/rsync-style pattern matching
 
 [![travis build status](https://api.travis-ci.org/davvid/wildmatch.svg?branch=main)](https://travis-ci.org/davvid/wildmatch)
@@ -7,6 +8,7 @@ wildmatch is a BSD-licensed C/C++ library for git/rsync-style pattern matching
 
 SYNOPSIS
 --------
+
     /* C API */
     #include <wildmatch/wildmatch.h>
 
@@ -23,6 +25,7 @@ SYNOPSIS
 
 DESCRIPTION
 -----------
+
 wildmatch is an extension of function fnmatch(3) as specified in
 POSIX 1003.2-1992, section B.6.
 
@@ -42,16 +45,20 @@ syntax by default.
 The `WM_` flags are named the same as their `FNM_` fnmatch counterparts
 and are compatible in behavior to fnmatch(3) in the absence of `WM_WILDSTAR`.
 
+
 RETURN VALUE
 ------------
+
 The C API returns `WM_MATCH` when string matches the pattern, and `WM_NOMATCH`
 when the pattern does not match.  These values are #defines for 0 and 1,
 respectively.
 
 The C++ API returns a boolean `true` (match) or `false` (no match).
 
+
 HISTORY
 -------
+
 Wildmatch's extended syntax was developed by targetting the
 [wildmatch test cases](https://github.com/git/git/blob/maint/t/t3070-wildmatch.sh)
 from [Git](https://git-scm.com).
@@ -69,12 +76,16 @@ The OpenBSD fnmatch implementation was extended in a backwards-compatible
 fashion by introducing a new `WM_WILDSTAR` flag for the purpose of enabling
 the extended syntax.
 
+
 BUILD
 -----
+
     make
+
 
 TEST
 ----
+
     make test
 
 The test suite is borrowed from the Git project and can be found in
@@ -84,8 +95,10 @@ The test suite is borrowed from the Git project and can be found in
 Passing the `-v` flag to the test script increases its verbosity, and passing
 the `--immediate` flag tells the test suite to stop on the first failure.
 
+
 INSTALL
 -------
+
     make prefix=/usr/local install
 
 The install tree looks like the following:
@@ -110,20 +123,26 @@ The C++ API library is a superset of the C API.  If you link against the C++
 library then you can also use the C API functions if desired; there is no need
 to link against both libraries.
 
+
 REQUIREMENTS
 ------------
-* A C99-compatible compiler is needed for the C API.
+
+* * A C99-compatible compiler is needed for the C API.
 * A C++11-compatible compiler is needed to build and use the C++ API.
 * [cmake](https://cmake.org/) >= 2.8.12 is used to build the project.
 
+
 SEE ALSO
 --------
+
 fnmatch(3)
 
 [rsync](https://rsync.samba.org)
 
 [Git](https://github.com/git/git)
 
+
 LICENSE
 -------
+
 [BSD](LICENSE)
