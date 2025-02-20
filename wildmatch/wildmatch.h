@@ -53,6 +53,15 @@ extern "C" {
 #define WM_CASEFOLD 0x10 /* Case insensitive search. */
 #define WM_PREFIX_DIRS 0x20 /* Unused */
 #define WM_WILDSTAR 0x40 /* Double-asterisks ** matches slash too. */
+#define WM_KSH_BRACKETS 0x80 /* Accept KSH style (x|y|z) and [+?@!](a|b|c) expressions. */
+#define WM_BRACES 0x100 /* Accept {x,y,z} expressions. */
+#define WM_NEGATION 0x200 /* !-prefixed wildcard expressions invert the result, a la gitignore. Extended: also applies to {} and {} subexpressions */
+#define WM_ALT_SUBEXPR_SEPARATOR 0x400 /* Accept alternative () and {} subexpression separators: accept any in the set , | ; : */
+#define WM_TILDE 0x800 /* Accept ~/ and ~user/ paths, using the provided mapper callback function. */
+#define WM_EXPAND_VARS 0x1000 /* Expand any $x$ and %x% variables, using the provided mapper callback function. */
+#define WM_CHARCLASS 0x2000 /* Accept [:class:] elements in any [] set expression. */
+#define WM_EQUIV 0x4000 /* Accept [=c=] elements in any [] set expression. */
+#define WM_UCS2 0x8000 /* Accept NTFS/Windows UCS2 characters which are legal but are also broken UTF16 higher plane encodes. */
 
 #define WM_IGNORECASE WM_CASEFOLD
 #define WM_FILE_NAME WM_PATHNAME
@@ -67,12 +76,30 @@ extern "C" {
  * by passing WM_WILDSTAR in flags, which makes ** match across path
  * boundaries.  WM_WILDSTAR implies WM_PATHNAME and WM_PERIOD.
  *
- * The WM_ flags are the named the same as their FNM_ fnmatch counterparts
+ * The WM_ flags are named the same as their FNM_ fnmatch counterparts
  * and are compatible in behavior to fnmatch(3) in the absence of WM_WILDSTAR.
  */
 
 int wildmatch(const char *pattern, const char *string, int flags);
 
+/* the type of the user-provided mapper callback function. */
+typedef int wm_mapper_callback_t(char *dst, size_t dstsize, const char *param, int flags);
+
+/*
+ * The 'extended' version of wildmatch() above, which includes support for the WM_EXPAND_VARS and WM_TILDE flags.
+ */
+int wildmatch_ex(const char *pattern, const char *string, int flags, wm_mapper_callback_t mapper);
+
+/*
+ * Normalize your wildcard expression to use the default subexpression seaprators, etc.;
+ * also resolves duplicate subexpressions such as **\**\ and reduces a\.\b and a\c\..\b to a\b.
+ */
+int normalize_wildmatch(char *dst, size_t dstsize, const char *pattern, int flags);
+
+/*
+ * Translates your wildcard expression to an equivalent regular expression.
+ */
+int translate_wildmatch(char *dst, size_t dstsize, const char *pattern, int flags);
 
 #ifdef __cplusplus
 }
