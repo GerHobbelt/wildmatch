@@ -3,6 +3,7 @@
 #include <iostream>
 
 #include <wildmatch/wildmatch.hpp>
+#include <wildmatch/monolithic_examples.h>
 
 static int die(const char *msg)
 {
@@ -15,6 +16,7 @@ static int die(const char *msg)
 #define main(cnt, arr)      wildmatch_cxx_test_main(cnt, arr)
 #endif
 
+extern "C" 
 int main(int argc, const char **argv)
 {
     if (argc < 4) {

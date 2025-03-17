@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <wildmatch/wildmatch.h>
+#include <wildmatch/monolithic_examples.h>
 
 
 static int die(const char *msg)
