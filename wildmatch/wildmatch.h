@@ -45,10 +45,11 @@ extern "C" {
 
 #define WM_MATCH 0 /* Match. */
 #define WM_NOMATCH 1 /* Match failed. */
+/* Note: any other non-zero return value indicates an error result. */
 
 #define WM_NOESCAPE 0x01 /* Disable backslash escaping. */
 #define WM_PATHNAME 0x02 /* Slash must be matched by slash. */
-#define WM_PERIOD 0x04 /* Period must be matched by period. */
+#define WM_PERIOD 0x04 /* Period must be matched by leading period. */
 #define WM_LEADING_DIR 0x08 /* Ignore /<tail> after Imatch. */
 #define WM_CASEFOLD 0x10 /* Case insensitive search. */
 #define WM_PREFIX_DIRS 0x20 /* Unused */
@@ -67,7 +68,7 @@ extern "C" {
  * by passing WM_WILDSTAR in flags, which makes ** match across path
  * boundaries.  WM_WILDSTAR implies WM_PATHNAME and WM_PERIOD.
  *
- * The WM_ flags are the named the same as their FNM_ fnmatch counterparts
+ * The WM_ flags are named the same as their FNM_ fnmatch counterparts
  * and are compatible in behavior to fnmatch(3) in the absence of WM_WILDSTAR.
  */
 

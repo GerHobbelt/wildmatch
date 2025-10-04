@@ -48,9 +48,9 @@ extern "C" {
 #define RANGE_NOMATCH 0
 #define RANGE_ERROR -1
 
-#define check_flag(flags, opts) ((flags) & (opts))
+#define check_flag(flags, opts) (((flags) & (opts)) != 0)
 
-static int rangematch(const char *, char, int, const char **);
+static int rangematch(const char* pattern, char test, int flags, const char** newp);
 
 int wildmatch(const char *pattern, const char *string, int flags)
 {
@@ -172,10 +172,12 @@ int wildmatch(const char *pattern, const char *string, int flags)
                 return WM_NOMATCH;
 
             switch (rangematch(pattern, *string, flags, &newp)) {
+			default:
             case RANGE_ERROR:
                 /* not a good range, treat as normal text */
                 ++string;
                 goto normal;
+
             case RANGE_MATCH:
                 pattern = newp;
                 break;
@@ -196,7 +198,7 @@ int wildmatch(const char *pattern, const char *string, int flags)
             }
             /* FALLTHROUGH */
         default:
-        normal:
+normal:
             if (c != *string && !(check_flag(flags, WM_CASEFOLD) &&
                  (tolower((unsigned char)c) ==
                  tolower((unsigned char)*string))))
@@ -222,7 +224,8 @@ rangematch(const char *pattern, char test, int flags, const char **newp)
      * consistency with the regular expression syntax.
      * J.T. Conklin (conklin@ngai.kaleida.com)
      */
-    if ((negate = (*pattern == '!' || *pattern == '^')))
+	negate = (*pattern == '!' || *pattern == '^');
+    if (negate)
         ++pattern;
 
     if (check_flag(flags, WM_CASEFOLD))
