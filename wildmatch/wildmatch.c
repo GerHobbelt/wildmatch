@@ -51,6 +51,7 @@ extern "C" {
 #define check_flag(flags, opts) (((flags) & (opts)) != 0)
 
 static int rangematch(const char* pattern, char test, int flags, const char** newp);
+static const char* simple_element_match(const char* pattern, const char* pattern_end, const char* string, int flags);
 
 int wildmatch(const char *pattern, const char *string, int flags)
 {
@@ -187,7 +188,34 @@ int wildmatch(const char *pattern, const char *string, int flags)
             }
             ++string;
             break;
-        case '\\':
+		case '(':
+			/* (a|b...) -- a set of literals to match: */
+			if (*string == EOS)
+				return WM_NOMATCH;
+			{
+				const char* pattern_end = strchr(pattern, ')');
+				if (!pattern_end)
+					return WM_NOMATCH;
+				do
+				{
+					const char* alt_marker = strchr(pattern, '|');
+					if (!alt_marker || alt_marker > pattern_end)
+						alt_marker = pattern_end;
+					const char* m = simple_element_match(pattern, alt_marker, string, flags);
+					if (m) {
+						pattern = pattern_end + 1;
+						string = m;
+						int rv = wildmatch(pattern, string, flags);
+						if (rv == WM_MATCH)
+							return rv;
+					}
+					// try the next alternative in the set
+					pattern = alt_marker + 1;
+				} while (pattern < pattern_end);
+				pattern = pattern_end + 1;
+			}
+			break;
+		case '\\':
             if (!check_flag(flags, WM_NOESCAPE)) {
                 if ((c = *pattern++) == EOS) {
                     c = '\\';
@@ -312,6 +340,22 @@ rangematch(const char *pattern, char test, int flags, const char **newp)
     *newp = (const char *)pattern;
     return (ok == negate) ? RANGE_NOMATCH : RANGE_MATCH;
 }
+
+static const char* simple_element_match(const char* pattern, const char* pattern_end, const char* string, int flags)
+{
+	while (pattern < pattern_end) {
+		char c = *pattern++;
+		if (
+			c != *string && !(check_flag(flags, WM_CASEFOLD) &&
+				(tolower((unsigned char)c) == tolower((unsigned char)*string)))
+			) {
+			return NULL; // WM_NOMATCH
+		}
+		++string;
+	}
+	return string; // WM_MATCH
+}
+
 
 #ifdef __cplusplus
 }
