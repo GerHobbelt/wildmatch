@@ -1,0 +1,6 @@
+#ifndef WILDMATCH_TEST_TOOL_H
+#define WILDMATCH_TEST_TOOL_H
+
+
+
+#endif
