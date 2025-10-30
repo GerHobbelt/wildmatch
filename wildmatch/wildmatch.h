@@ -60,7 +60,7 @@ extern "C" {
 #define WM_ALT_SUBEXPR_SEPARATOR 0x400 /* Accept alternative () and {} subexpression separators: accept any in the set , | ; : */
 #define WM_TILDE 0x800 /* Accept ~/ and ~user/ paths, using the provided mapper callback function. Default mapping expands to the symtem's user/home paths. */
 #define WM_EXPAND_VARS 0x1000 /* Expand any $x$ and %x% variables, using the provided mapper callback function. Default mapping expands any environment variables. */
-#define WM_CLASSES 0x2000 /* Accept named character class [:class:], equivalence class [=c=] and collating cymbol class [.c.] elements in any [] set expression. */
+#define WM_CLASSES 0x2000 /* Accept named character class [:class:], equivalence class [=c=] and collating symbol class [.c.] elements in any [] set expression. */
 #define WM_UCS2 0x4000 /* Accept NTFS/Windows UCS2 characters which are legal but are also broken UTF16 higher plane encodes. */
 #define WM_UNICODE 0x8000 /* Accept/assume the locale to be the full range UTF8/Unicode codepoint space. Requires the availability of the ICU library. */
 #define WM_EXPAND_FALLBACK_TO_DEFAULT 0x10000 /* When the userland mapper for the WM_EXPAND_VARS or WM_TILDE flags did not resolve the particle, the task is forwarded to the default mapper. This allows userland programmers to code mappers which only serve to 'tweak' desired behaviours otherwise provided by the default mapper, thus reducing code duplication across libraries/applications and effect bugs due to disparity. */
@@ -84,6 +84,7 @@ extern "C" {
  */
 
 int wildmatch(const char *pattern, const char *string, int flags);
+int wildmatchW(const char *pattern, const char *pattern_end, const wchar_t *string, int flags);
 
 /*
  * The type of the user-provided mapper callback function.
@@ -101,19 +102,14 @@ typedef int wm_mapper_callback_t(char *dst, size_t dstsize, const char *param, i
  * Note: when the WM_EXPAND_VARS or WM_TILDE flags are passed to the `wildmatch()` API above, a default mapper/resolver
  * is used. `wildmatch_ex()` enables userland code to specify a customized mapper instead.
  */
-int wildmatch_ex(const char *pattern, const char *string, int flags, wm_mapper_callback_t mapper);
+int wildmatch_ex(const char *pattern, const size_t pattern_length, const char *string, int flags, wm_mapper_callback_t mapper);
 
 /*
- * Normalize your wildcard expression to use the default subexpression seaprators, etc.;
+ * Normalize your wildcard expression to use the default subexpression separators, etc.;
  * also resolves duplicate subexpressions such as **\**\ and reduces a\.\b and a\c\..\b to a\b
  * and cleans up set expressions which contain implicit or explict / slashes while WM_PATHNAME is used.
  */
 int normalize_wildmatch(char *dst, size_t dstsize, const char *pattern, int flags);
-
-/*
- * Translates your wildcard expression to an equivalent regular expression.
- */
-int translate_wildmatch(char *dst, size_t dstsize, const char *pattern, int flags);
 
 #ifdef __cplusplus
 }

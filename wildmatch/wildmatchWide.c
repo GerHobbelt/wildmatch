@@ -1,0 +1,367 @@
+/*
+ * Copyright (c), 2016 David Aguilar
+ * Based on the fnmatch implementation from OpenBSD.
+ *
+ * Copyright (c) 1989, 1993, 1994
+ *  The Regents of the University of California.  All rights reserved.
+ *
+ * This code is derived from software contributed to Berkeley by
+ * Guido van Rossum.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. Neither the name of the University nor the names of its contributors
+ *    may be used to endorse or promote products derived from this software
+ *    without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
+#include <ctype.h>
+#include <string.h>
+#include <stdio.h>
+
+#include "wildmatch.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define EOS '\0'
+#define RANGE_MATCH 1
+#define RANGE_NOMATCH 0
+#define RANGE_ERROR -1
+
+#define check_flag(flags, opts) (((flags) & (opts)) != 0)
+
+static int rangematch(const char* pattern, wchar_t test, int flags, const char** newp);
+static const wchar_t* simple_element_match(const char* pattern, const char* pattern_end, const wchar_t* string, int flags);
+
+int wildmatchW(const char *pattern, const char* pattern_end, const wchar_t* string, int flags)
+{
+    const wchar_t* stringstart;
+    const char *patternstart;
+    const char *newp;
+    const wchar_t* slash;
+	wchar_t c, test;
+	wchar_t prev;
+    int wild = 0;
+
+    /* WM_WILDSTAR implies WM_PATHNAME. */
+    if (check_flag(flags, WM_WILDSTAR)) {
+        flags |= WM_PATHNAME;
+    }
+
+    for (stringstart = string, patternstart = pattern; pattern < pattern_end; ) {
+        switch (c = *pattern++) {
+        case EOS:
+            if (check_flag(flags, WM_LEADING_DIR) && *string == '/')
+                return WM_MATCH;
+            return (*string == EOS) ? WM_MATCH : WM_NOMATCH;
+        case '?':
+            if (*string == EOS)
+                return WM_NOMATCH;
+            if (*string == '/' && check_flag(flags, WM_PATHNAME))
+                return WM_NOMATCH;
+            if (*string == '.' && check_flag(flags, WM_PERIOD) &&
+                (string == stringstart ||
+                (check_flag(flags, WM_PATHNAME) && *(string - 1) == '/')))
+                return WM_NOMATCH;
+            ++string;
+            break;
+        case '*':
+            c = *pattern;
+            wild = check_flag(flags, WM_WILDSTAR) && c == '*';
+            if (wild) {
+                prev = ((pattern - 2) >= patternstart) ? pattern[-2] : '\0';
+                /* Collapse multiple stars and slash-** patterns,
+                 * e.g. "** / *** / **** / **" (without spaces)
+                 * is treated as a single ** wildstar.
+                 */
+                while (c == '*') {
+                    c = *++pattern;
+                }
+
+                while (c == '/' && pattern[1] == '*' && pattern[2] == '*') {
+                    prev = c;
+                    c = *++pattern;
+                    while (c == '*') {
+                        c = *++pattern;
+                    }
+                }
+                if (c == '/' &&
+                        wildmatchW(pattern+1, pattern_end, string, flags) == WM_MATCH) {
+                    return WM_MATCH;
+                }
+            } else {
+                /* Collapse multiple stars. */
+                while (c == '*') {
+                    c = *++pattern;
+                }
+            }
+
+            if (!wild && *string == '.' && check_flag(flags, WM_PERIOD) &&
+                (string == stringstart ||
+                (check_flag(flags, WM_PATHNAME) && *(string - 1) == '/'))) {
+                return WM_NOMATCH;
+            }
+            /* Optimize for pattern with * or ** at end or before /. */
+            if (c == EOS) {
+                if (wild && prev == '/') {
+                    return WM_MATCH;
+                }
+                if (check_flag(flags, WM_PATHNAME)) {
+                    return (check_flag(flags, WM_LEADING_DIR) ||
+                        wcschr(string, '/') == NULL ?  WM_MATCH : WM_NOMATCH);
+                } else {
+                    return WM_MATCH;
+                }
+            } else if (c == '/') {
+                if (wild) {
+                    slash = wcschr(stringstart, '/');
+                    if (!slash) {
+                        return WM_NOMATCH;
+                    }
+                    while (slash) {
+                        if (wildmatchW(pattern+1, pattern_end, slash+1, flags) == 0) {
+                            return WM_MATCH;
+                        }
+                        slash = wcschr(slash+1, '/');
+                    }
+                } else {
+                    if (check_flag(flags, WM_PATHNAME)) {
+                        if ((string = wcschr(string, '/')) == NULL) {
+                            return WM_NOMATCH;
+                        }
+                    }
+                }
+            } else if (wild) {
+                return WM_NOMATCH;
+            }
+            /* General case, use recursion. */
+            while ((test = *string) != EOS) {
+                if (!wildmatchW(pattern, pattern_end, string, flags & ~WM_PERIOD))
+                    return WM_MATCH;
+                if (test == '/' && check_flag(flags, WM_PATHNAME))
+                    break;
+                ++string;
+            }
+            return WM_NOMATCH;
+        case '[':
+            if (*string == EOS)
+                return WM_NOMATCH;
+            if (*string == '/' && check_flag(flags, WM_PATHNAME))
+                return WM_NOMATCH;
+            if (*string == '.' && check_flag(flags, WM_PERIOD) &&
+                    (string == stringstart ||
+                     (check_flag(flags, WM_PATHNAME) && *(string - 1) == '/')))
+                return WM_NOMATCH;
+
+            switch (rangematch(pattern, *string, flags, &newp)) {
+			default:
+            case RANGE_ERROR:
+                /* not a good range, treat as normal text */
+                ++string;
+                goto normal;
+
+            case RANGE_MATCH:
+                pattern = newp;
+                break;
+            case RANGE_NOMATCH:
+                return (WM_NOMATCH);
+            }
+            ++string;
+            break;
+		case '(':
+			/* (a|b...) -- a set of literals to match: */
+			if (*string == EOS)
+				return WM_NOMATCH;
+			{
+				const char* pattern_end = strchr(pattern, ')');
+				if (!pattern_end)
+					return WM_NOMATCH;
+				do
+				{
+					const char* alt_marker = strchr(pattern, '|');
+					if (!alt_marker || alt_marker > pattern_end)
+						alt_marker = pattern_end;
+					const wchar_t* m = simple_element_match(pattern, alt_marker, string, flags);
+					if (m) {
+						pattern = pattern_end + 1;
+						string = m;
+						int rv = wildmatchW(pattern, pattern_end, string, flags);
+						if (rv == WM_MATCH)
+							return rv;
+					}
+					// try the next alternative in the set
+					pattern = alt_marker + 1;
+				} while (pattern < pattern_end);
+				pattern = pattern_end + 1;
+			}
+			break;
+		case '\\':
+            if (!check_flag(flags, WM_NOESCAPE)) {
+                if ((c = *pattern++) == EOS) {
+                    c = '\\';
+                    --pattern;
+                    if (*(string) == EOS || *(string+1) == EOS) {
+                        return WM_NOMATCH;
+                    }
+                }
+            }
+            /* FALLTHROUGH */
+        default:
+normal:
+            if (c != *string && !(check_flag(flags, WM_CASEFOLD) &&
+                 (towlower((unsigned char)c) ==
+                 towlower(*string))))
+                return WM_NOMATCH;
+            ++string;
+            break;
+        }
+    /* NOTREACHED */
+    }
+
+	// case EOS:
+	if (check_flag(flags, WM_LEADING_DIR) && *string == '/')
+		return WM_MATCH;
+	return (*string == EOS) ? WM_MATCH : WM_NOMATCH;
+}
+
+static int
+rangematch(const char *pattern, wchar_t test, int flags, const char **newp)
+{
+    int negate, ok;
+    char c, c2;
+    char tmp;
+
+    /*
+     * A bracket expression starting with an unquoted circumflex
+     * character produces unspecified results (IEEE 1003.2-1992,
+     * 3.13.2).  This implementation treats it like '!', for
+     * consistency with the regular expression syntax.
+     * J.T. Conklin (conklin@ngai.kaleida.com)
+     */
+	negate = (*pattern == '!' || *pattern == '^');
+    if (negate)
+        ++pattern;
+
+    if (check_flag(flags, WM_CASEFOLD))
+        test = towlower(test);
+
+    /*
+     * A right bracket shall lose its special meaning and represent
+     * itself in a bracket expression if it occurs first in the list.
+     * -- POSIX.2 2.8.3.2
+     */
+    ok = 0;
+    c = *pattern++;
+    do {
+        if (c == '\\' && !check_flag(flags, WM_NOESCAPE))
+            c = *pattern++;
+
+        if (c == EOS)
+            return RANGE_ERROR;
+
+        if (c == '/' && check_flag(flags, WM_PATHNAME))
+            return RANGE_NOMATCH;
+
+        if (*pattern == '-'
+            && (c2 = *(pattern+1)) != EOS && c2 != ']') {
+            pattern += 2;
+            if (c2 == '\\' && !check_flag(flags, WM_NOESCAPE))
+                c2 = *pattern++;
+            if (c2 == EOS)
+                return RANGE_ERROR;
+
+            if (check_flag(flags, WM_CASEFOLD)) {
+                c = tolower((unsigned char)c);
+                c2 = tolower((unsigned char)c2);
+            }
+            if (c > c2) {
+                tmp = c2;
+                c2 = c;
+                c = tmp;
+            }
+            if (c <= test && test <= c2) {
+                ok = 1;
+            }
+        }
+
+        if (c == '[' && *pattern == ':' && *(pattern+1) != EOS) {
+
+            #define match_pattern(name) \
+                !strncmp(pattern+1, name, sizeof(name)-1)
+
+            #define check_pattern(name, predicate, value) {{ \
+                if (match_pattern(name ":]")) { \
+                    if (predicate(value)) { \
+                        ok = 1; \
+                    } \
+                    pattern += sizeof(name ":]"); \
+                    continue; \
+                } \
+            }}
+
+            if (match_pattern(":]")) {
+                continue;
+            }
+            check_pattern("alnum", iswalnum, test);
+            check_pattern("alpha", iswalpha, test);
+            check_pattern("blank", iswblank, test);
+            check_pattern("cntrl", iswcntrl, test);
+            check_pattern("digit", iswdigit, test);
+            check_pattern("graph", iswgraph, test);
+            check_pattern("lower", iswlower, test);
+            check_pattern("print", iswprint, test);
+            check_pattern("punct", iswpunct, test);
+            check_pattern("space", iswspace, test);
+            check_pattern("xdigit", iswxdigit, test);
+            c2 = check_flag(flags, WM_CASEFOLD) ? towupper(test) : test;
+            check_pattern("upper", iswupper, c2);
+            /* fallthrough means match like a normal character */
+        }
+        if (c == test) {
+            ok = 1;
+        }
+    } while ((c = *pattern++) != ']');
+
+    *newp = pattern;
+    return (ok == negate) ? RANGE_NOMATCH : RANGE_MATCH;
+}
+
+static const wchar_t* simple_element_match(const char* pattern, const char* pattern_end, const wchar_t* string, int flags)
+{
+	while (pattern < pattern_end) {
+		wchar_t c = (unsigned char)*pattern++;
+		if (
+			c != *string && !(check_flag(flags, WM_CASEFOLD) &&
+				(towlower(c) == towlower(*string)))
+			) {
+			return NULL; // WM_NOMATCH
+		}
+		++string;
+	}
+	return string; // WM_MATCH
+}
+
+
+#ifdef __cplusplus
+}
+#endif
