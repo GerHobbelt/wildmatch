@@ -129,7 +129,7 @@ REQUIREMENTS
 
 * * A C99-compatible compiler is needed for the C API.
 * A C++11-compatible compiler is needed to build and use the C++ API.
-* [cmake](https://cmake.org/) >= 2.8.12 is used to build the project.
+* [cmake](https://cmake.org/) >= 3.5.0 is used to build the project.
 
 
 SEE ALSO
