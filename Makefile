@@ -34,6 +34,8 @@ $(builddir)/stamp: $(CMAKE_FILES)
 
 all:: $(builddir)/stamp
 	$(MAKE) -C $(builddir) $(MAKEARGS) all
+	rm -f build/compile_commands.json
+	ln -s $(platformdir)/compile_commands.json build/compile_commands.json
 .PHONY: all
 
 clean: $(builddir)/stamp
